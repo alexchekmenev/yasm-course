@@ -3,6 +3,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <cassert>
+#include "suffix-array.h"
 
 using namespace std;
 
@@ -84,15 +86,27 @@ int main() {
     //ios_base::sync_with_stdio(false);
 
     freopen("array.in", "r", stdin);
-    freopen("array.out", "w", stdout);
+    //freopen("array.out", "w", stdout);
 
     string s;
     cin >> s;
     s += "#";
 
     vector <int> sa = suffix_array(s);
+    cout << "C++ implementation:\n";
     for(int i = 1; i < (int)sa.size(); i++) {
         cout << sa[i] + 1 << " ";
     }
+    cout << endl;
+
+    cout << "YASM implementation:\n";
+    /*int a = buildSuffixArray(s.c_str(), s.size());
+    cout << "\nA = " << a << endl << endl;*/
+    SuffixArray a = buildSuffixArray(s.c_str(), s.size());
+    for(int i = 0; i < s.size(); i++) {
+        cout << getPosition(a, i) << endl;
+    }
+    assert(a != NULL);
+    deleteSuffixArray(a);
     return 0;
 }
