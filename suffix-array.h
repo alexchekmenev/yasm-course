@@ -12,7 +12,8 @@ extern "C" {
  * Build suffix array for given string
  * \return new suffix-array or 0 if out of memory.
  */
-SuffixArray buildSuffixArray(const char* str, int length);
+//SuffixArray buildSuffixArray(const char* str, int length);
+int buildSuffixArray(const char* str, int length);
 
 /**
  * Delete suffix array

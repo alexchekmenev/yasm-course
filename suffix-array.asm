@@ -8,6 +8,7 @@ section .text
 extern calloc
 extern free
 extern printf
+extern memcpy
 
 global buildSuffixArray
 global deleteSuffixArray
@@ -71,7 +72,6 @@ ALPHABET    equ 256         ; ASCII
 
 ;; MAIN FUNCTIONS
 
-
 ; buildSuffixArray(const char* str, const int length)
 ;   Build suffix array for given string and certain length
 ;   Input:
@@ -115,6 +115,10 @@ buildSuffixArray:
 
     mpop rax                        ; rax = address of SuffixArray
 
+;    for(int i = 0; i < n; i++) {
+;        c[i] = s[i];
+;        sum[c[i]]++;
+;    }
     xor r8, r8                      ; i = 0
 .loop1:                             ; for(; i < n;)
     xor rcx, rcx
@@ -128,6 +132,9 @@ buildSuffixArray:
     add r8, 1                       ; i++
     if r8, l, rsi, .loop1           ; if i < n goto .loop1
 
+;   for(int i = 1; i < sz; i++) {
+;        h[i] = h[i - 1] + sum[i - 1];
+;    }
     mov r8, 1                       ; i = 1
 .loop2:                             ; for(; i < sz;)
 
@@ -200,7 +207,91 @@ buildSuffixArray:
     add r8, 1                       ; i++
     if r8, l, rsi, .loop4           ; if i < n goto .loop4
 
+    ; moving values of `c_n` to `c`
+
+    mpush rax, rdi, rsi, rdx, r10, r11
+        mov rdi, r12
+        mov rsi, r13
+        imul rdx, INT_SZ
+        call memcpy
+    mpop rax, rdi, rsi, rdx, r10, r11
+
+    mov r9, 1                       ; l = 1
+
+    ;jmp .finish1
+.calc_loop:
+
+    ;   for(int i = 0; i < n; i++) {
+    ;        p_n[i] = (n + p[i] - l) % n;
+    ;    }
+    mov r8, 0                                   ; i = 0
+    .inner_loop1:
+        mov ecx, [r14 + r8 * INT_SZ]            ; rcx = p[i]
+        add rcx, rsi                            ; rcx = p[i] + n
+        sub rcx, r9                             ; rcx = p[i] + n - l
+        if rcx, l, rsi, .inner_loop1_after_mod  ; if rcx < n
+            sub rcx, rsi                        ; rcx -= n
+    .inner_loop1_after_mod:
+        mov [r15 + r8 * INT_SZ], ecx            ; p_n[i] = (p[i] + n - l) % n
+        add r8, 1                               ; i++
+        if r8, l, rsi, .inner_loop1             ; if i < n goto .inner_loop1
+
+    ;mov rax, [r12 + 7*INT_SZ]
+    ;jmp .finish1
+
+    ;    for(int i = 0; i < n; i++) {
+    ;        p[h[c[p_n[i]]]] = p_n[i];
+    ;        h[c[p_n[i]]]++;
+    ;    }
+    mov r8, 0                                   ; i = 0
+    .inner_loop2:
+
+        mov edx, [r15 + r8 * INT_SZ]            ; rdx = p_n[i]
+        mov ecx, [r12 + rdx * INT_SZ]           ; rcx = c[p_n[i]]
+        mov ecx, [r11 + rcx * INT_SZ]           ; rcx = h[c[p_n[i]]]
+        mov [r14 + rcx * INT_SZ], edx           ; p[h[c[p_n[i]]]] = p_n[i]
+        add rcx, 1
+
+        mov edx, [r15 + r8 * INT_SZ]            ; rdx = p_n[i]
+        mov edx, [r12 + rdx * INT_SZ]           ; rdx = c[p_n[i]]
+        mov [r11 + rdx * INT_SZ], ecx           ; h[c[p_n[i]]] = h[c[p_n[i]]] + 1
+
+        ;mov rax, rcx
+        ;if r8, e, 7, .finish1
+
+        add r8, 1                               ; i++
+        if r8, l, rsi, .inner_loop2             ; if i < n goto .inner_loop2
+
+    ;    c_n[p[0]] = 0;
+    ;    h[0] = 0;
+    ;    for(int i = 1; i < n; i++) {
+    ;        int p1 = p[i], p2 = (p1 + l) % n;
+    ;        int pr1 = p[i - 1], pr2 = (pr1 + l) % n;
+    ;        if (c[pr1] != c[p1] || c[pr2] != c[p2]) {
+    ;            c_n[p1] = c_n[pr1] + 1;
+    ;            h[c_n[pr1] + 1] = i;
+    ;        } else {
+    ;            c_n[p1] = c_n[pr1];
+    ;        }
+    ;    }
+    mov rdx, 0
+    mov ecx, [r14 + 0 * INT_SZ]                 ; rcx = p[0]
+    mov [r13 + rcx * INT_SZ], edx               ; c_n[p[0]] = 0
+    mov [r11 + 0 * INT_SZ], edx                 ; h[0] = 0
+    mov r8, 1                                   ; i = 1
+    .inner_loop3:                               ; for(;i < n;)
+
+
+        add r8, 1                               ; i++
+        if r8, l, rsi, .inner_loop3             ; if i < n goto .inner_loop3
+
+
+    add r9, r9                      ; l *= 2
+    if r9, l, 2, .calc_loop         ; if l < n goto .calc_loop
+
     ; deallocation memory
+
+.finish1:
 
     call_free r10
     call_free r11
@@ -224,4 +315,7 @@ length:
 
 getPosition:
     mov eax, [rdi + DATA + rsi * INT_SZ]
+    ret
+
+findAllEntries:
     ret

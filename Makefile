@@ -1,7 +1,7 @@
 all: main
 
 asm: suffix-array.asm
-	yasm -felf64 -g dwarf2 suffix-array.asm
+	yasm -f elf64 -g dwarf2 suffix-array.asm
 
 ar: asm
 	ar rcs suffix-array.a suffix-array.o

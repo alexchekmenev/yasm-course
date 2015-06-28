@@ -100,13 +100,13 @@ int main() {
     cout << endl;
 
     cout << "YASM implementation:\n";
-    /*int a = buildSuffixArray(s.c_str(), s.size());
-    cout << "\nA = " << a << endl << endl;*/
-    SuffixArray a = buildSuffixArray(s.c_str(), s.size());
+    int a = buildSuffixArray(s.c_str(), s.size());
+    cout << "\nA = " << a << endl << endl;
+    /*SuffixArray a = buildSuffixArray(s.c_str(), s.size());
     for(int i = 0; i < s.size(); i++) {
         cout << getPosition(a, i) << endl;
     }
     assert(a != NULL);
-    deleteSuffixArray(a);
+    deleteSuffixArray(a);*/
     return 0;
 }
