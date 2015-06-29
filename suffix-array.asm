@@ -3,12 +3,18 @@
 ;   rdi, rsi, rdx, rcx, r8, r9,
 ;   xmm0 - zmm7
 
+section .data
+
+pstr    db '%d',10,0
+ppstr    db '[%d] = %d',10,0
+
 section .text
 
 extern calloc
 extern free
 extern printf
 extern memcpy
+extern memmove
 
 global buildSuffixArray
 global deleteSuffixArray
@@ -46,11 +52,11 @@ ALPHABET    equ 256         ; ASCII
 %endmacro
 
 %macro call_calloc 2
-    mpush rdi, rsi, rdx, rcx
+    mpush rdi, rsi, rcx, rdx, r8, r9, r10, r11
         mov rdi, %1
         mov rsi, %2
         call calloc
-    mpop rdi, rsi, rdx, rcx
+    mpop rdi, rsi, rcx, rdx, r8, r9, r10, r11
 %endmacro
 
 %macro call_free 1
@@ -150,7 +156,7 @@ buildSuffixArray:
 ;        p[h[c[i]]] = i;
 ;        h[c[i]]++;
 ;   }
-    mov r8, 0                       ; i = 0
+    xor r8, r8                      ; i = 0
 .loop3:                             ; for(; i < n; )
 
     mov ecx, [r12 + r8 * INT_SZ]    ; rcx = c[i]
@@ -176,7 +182,7 @@ buildSuffixArray:
 ;        }
 ;    }
 ;    c = c_n;
-    mov r8, 0
+    xor r8, r8
     mov [r11 + 0 * INT_SZ], r8d     ; h[0] = 0
     mov ecx, [r14 + 0 * INT_SZ]     ; rcx = p[0]
     mov [r13 + rcx * INT_SZ], r8d   ; c_n[p[0]] = 0
@@ -212,19 +218,19 @@ buildSuffixArray:
     mpush rax, rdi, rsi, rdx, r10, r11
         mov rdi, r12
         mov rsi, r13
-        imul rdx, INT_SZ
+        shl rdx, 2
         call memcpy
     mpop rax, rdi, rsi, rdx, r10, r11
 
     mov r9, 1                       ; l = 1
 
-    ;jmp .finish1
 .calc_loop:
+    mpush rdx                       ; save sz for using after .inner_loops
 
     ;   for(int i = 0; i < n; i++) {
     ;        p_n[i] = (n + p[i] - l) % n;
     ;    }
-    mov r8, 0                                   ; i = 0
+    xor r8, r8                                   ; i = 0
     .inner_loop1:
         mov ecx, [r14 + r8 * INT_SZ]            ; rcx = p[i]
         add rcx, rsi                            ; rcx = p[i] + n
@@ -233,31 +239,32 @@ buildSuffixArray:
             sub rcx, rsi                        ; rcx -= n
     .inner_loop1_after_mod:
         mov [r15 + r8 * INT_SZ], ecx            ; p_n[i] = (p[i] + n - l) % n
+
         add r8, 1                               ; i++
         if r8, l, rsi, .inner_loop1             ; if i < n goto .inner_loop1
-
-    ;mov rax, [r12 + 7*INT_SZ]
-    ;jmp .finish1
 
     ;    for(int i = 0; i < n; i++) {
     ;        p[h[c[p_n[i]]]] = p_n[i];
     ;        h[c[p_n[i]]]++;
     ;    }
-    mov r8, 0                                   ; i = 0
+
+    xor r8, r8                                   ; i = 0
     .inner_loop2:
+
+        xor rcx, rcx
+        xor rdx, rdx
 
         mov edx, [r15 + r8 * INT_SZ]            ; rdx = p_n[i]
         mov ecx, [r12 + rdx * INT_SZ]           ; rcx = c[p_n[i]]
         mov ecx, [r11 + rcx * INT_SZ]           ; rcx = h[c[p_n[i]]]
+
+
         mov [r14 + rcx * INT_SZ], edx           ; p[h[c[p_n[i]]]] = p_n[i]
         add rcx, 1
 
         mov edx, [r15 + r8 * INT_SZ]            ; rdx = p_n[i]
         mov edx, [r12 + rdx * INT_SZ]           ; rdx = c[p_n[i]]
         mov [r11 + rdx * INT_SZ], ecx           ; h[c[p_n[i]]] = h[c[p_n[i]]] + 1
-
-        ;mov rax, rcx
-        ;if r8, e, 7, .finish1
 
         add r8, 1                               ; i++
         if r8, l, rsi, .inner_loop2             ; if i < n goto .inner_loop2
@@ -274,6 +281,7 @@ buildSuffixArray:
     ;            c_n[p1] = c_n[pr1];
     ;        }
     ;    }
+    ;    c = c_n;
     mov rdx, 0
     mov ecx, [r14 + 0 * INT_SZ]                 ; rcx = p[0]
     mov [r13 + rcx * INT_SZ], edx               ; c_n[p[0]] = 0
@@ -281,17 +289,87 @@ buildSuffixArray:
     mov r8, 1                                   ; i = 1
     .inner_loop3:                               ; for(;i < n;)
 
+        mpush r8, r9, rbx
+            mov rbx, r8                         ; rbx = i (save for the future)
+            mov ecx, [r14 + r8 * INT_SZ]        ; p1 = p[i]
+            mov edx, [r14 + (r8 - 1) * INT_SZ]  ; pr1 = p[i - 1]
+            mov r8, rcx                         ; p2 = p1
+            add r8, r9                          ; p2 += l
+            add r9, rdx                         ; pr2 = pr1 + l
+
+            if r8, l, rsi, .inner_loop3_if1     ; p2 % n
+                sub r8, rsi
+
+            .inner_loop3_if1:
+
+            if r9, l, rsi, .inner_loop3_if2     ; pr2 % n
+                sub r9, rsi
+
+            .inner_loop3_if2:
+
+            mpush rax, r10, r14, r15
+                mov eax, [r12 + rcx * INT_SZ]   ; rax = c[p1]
+                mov r10d, [r12 + rdx * INT_SZ]   ; r10 = c[pr1]
+                mov r14d, [r12 + r8 * INT_SZ]  ; r14 = c[p2]
+                mov r15d, [r12 + r9 * INT_SZ]   ; r15 = c[pr2]
+
+                if rax, ne, r10, .inner_loop3_not_equal
+                if r14, ne, r15, .inner_loop3_not_equal
+
+                .inner_loop3_equal:
+                    mpush r12
+                        mov r12d, [r13 + rdx * INT_SZ]   ; r12 = c_n[pr1]
+                        mov [r13 + rcx *  INT_SZ], r12d ; c_n[p1] = c_n[pr1]
+                    mpop r12
+                    jmp .inner_loop3_after_cmp
+
+                .inner_loop3_not_equal:
+                    mpush r12
+                        mov r12d, [r13 + rdx * INT_SZ]   ; r12 = c_n[pr1]
+                        add r12, 1
+                        mov [r13 + rcx *  INT_SZ], r12d ; c_n[p1] = c_n[pr1] + 1
+                        mov [r11 + r12 * INT_SZ], ebx   ; h[c_n[pr1] + 1] = i
+                    mpop r12
+
+                .inner_loop3_after_cmp:
+
+            mpop rax, r10, r14, r15
+
+
+        mpop r8, r9, rbx
 
         add r8, 1                               ; i++
         if r8, l, rsi, .inner_loop3             ; if i < n goto .inner_loop3
 
+    mpop rdx
+
+   ; moving values of `c_n` to `c`
+
+    mpush rax, rdi, rsi, rdx, r8, r9, r10, r11
+        mov rdi, r12
+        mov rsi, r13
+        shl rdx, 2
+        call memmove
+    mpop rax, rdi, rsi, rdx, r8, r9, r10, r11
 
     add r9, r9                      ; l *= 2
-    if r9, l, 2, .calc_loop         ; if l < n goto .calc_loop
+    if r9, l, rsi, .calc_loop       ; if l < n goto .calc_loop
+
+    ; move values of `p` to SuffixArray object
+
+    mpush rax, rdi, rsi, rdx, r9, r10, r11
+        mov rdx, rsi
+        shl rdx, 2
+
+        mov rdi, rax
+        add rdi, INT_SZ
+
+        mov rsi, r14
+
+        call memcpy
+    mpop rax, rdi, rsi, rdx, r9, r10, r11
 
     ; deallocation memory
-
-.finish1:
 
     call_free r10
     call_free r11

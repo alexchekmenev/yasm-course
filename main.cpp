@@ -5,24 +5,18 @@
 #include <algorithm>
 #include <cassert>
 #include "suffix-array.h"
+#include <cstdlib>
 
 using namespace std;
 
 #define mp make_pair
 #define pb push_back
 
-void print(vector<int>& a, int n, string name) {
-    cout << name << ": ";
-    for(int i = 0; i < n; i++) {
-        cout << a[i] << " ";
-    }
-    cout << endl;
-}
-
-vector <int> suffix_array(const string& s) {
+void suffix_array(const string& s, vector <int>& p) {
     int n = s.size();
+    p.resize(n, 0);
     int sz = max(n, 256);
-    vector <int> sum(sz, 0), h(sz, 0), c(sz, 0), c_n(sz, 0), p(n, 0), p_n(n, 0);
+    vector <int> sum(sz, 0), h(sz, 0), c(sz, 0), c_n(sz, 0), p_n(n, 0);
 
     for(int i = 0; i < n; i++) {
         c[i] = s[i];
@@ -49,18 +43,40 @@ vector <int> suffix_array(const string& s) {
     }
     c = c_n;
 
-    //print(p, n, "p0");
-
     for(int l = 1; l < n; l *= 2) {
+        /*cout << "l = " << l << ":\n";
+        cout << "c   - [";
+        for(int j = 0; j < n; j++) {
+            cout << c[j] << " ";
+        }
+        cout << "]\n";*/
 
         for(int i = 0; i < n; i++) {
             p_n[i] = (n + p[i] - l) % n;
         }
+
+        /*cout << "p_n - [";
+        for(int j = 0; j < n; j++) {
+            cout << p_n[j] << " ";
+        }
+        cout << "]\n";
+
+        cout << "h   - [";
+        for(int j = 0; j < n; j++) {
+            cout << h[j] << " ";
+        }
+        cout << "]\n";*/
+
         for(int i = 0; i < n; i++) {
             p[h[c[p_n[i]]]] = p_n[i];
             h[c[p_n[i]]]++;
         }
-        //print(p, n, "p");
+
+        /*cout << "p   - [";
+        for(int j = 0; j < n; j++) {
+            cout << p[j] << " ";
+        }
+        cout << "]\n";*/
 
         c_n[p[0]] = 0;
         h[0] = 0;
@@ -75,38 +91,54 @@ vector <int> suffix_array(const string& s) {
             }
         }
 
-        //print(h, n, "h");
+        /*cout << "c_n - [";
+        for(int j = 0; j < n; j++) {
+            cout << c_n[j] << " ";
+        }
+        cout << "]\n";*/
+
         c = c_n;
+        //cout << endl;
     }
-    return p;
 }
 
+string s;
 
 int main() {
     //ios_base::sync_with_stdio(false);
 
-    freopen("array.in", "r", stdin);
+    //freopen("array.in", "r", stdin);
     //freopen("array.out", "w", stdout);
 
-    string s;
-    cin >> s;
+    int n = 1000000;
+    s.resize(n);
+    srand(time(NULL));
+    for(int i = 0; i < n; i++) {
+        s[i] = char(rand() % 26 + 'a');
+    }
     s += "#";
 
-    vector <int> sa = suffix_array(s);
+    vector <int> sa(n + 1, 0);
+
     cout << "C++ implementation:\n";
-    for(int i = 1; i < (int)sa.size(); i++) {
-        cout << sa[i] + 1 << " ";
-    }
-    cout << endl;
+    int cpp_cl = clock();
+    suffix_array(s, sa);
+    cpp_cl = clock() - cpp_cl;
+    printf("time = %.3lf\n", 1.0*cpp_cl / 1000000);
 
     cout << "YASM implementation:\n";
-    int a = buildSuffixArray(s.c_str(), s.size());
-    cout << "\nA = " << a << endl << endl;
-    /*SuffixArray a = buildSuffixArray(s.c_str(), s.size());
-    for(int i = 0; i < s.size(); i++) {
-        cout << getPosition(a, i) << endl;
+    int asm_cl = clock();
+    SuffixArray a = buildSuffixArray(s.c_str(), s.size());
+    asm_cl = clock() - asm_cl;
+    printf("time = %.3lf\n", 1.0*asm_cl / 1000000);
+
+    for(int i = 1; i < s.size(); i++) {
+        if (sa[i] != getPosition(a, i)) {
+            cout << "pizda v pozicii i = " << i << endl;
+            break;
+        }
     }
-    assert(a != NULL);
-    deleteSuffixArray(a);*/
+
+    deleteSuffixArray(a);
     return 0;
 }
