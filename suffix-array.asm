@@ -27,7 +27,8 @@ global findAllEntries
 
 CHAR_SZ     equ 1           ; 1-byte for every char in string
 INT_SZ      equ 4           ; 4-byte for every value in SuffixArray
-DATA        equ 4           ; 4-byte offset for SuffixArray length
+LEN         equ 8           ; 4-byte for length of SuffixArray
+DATA        equ 12          ; 12-byte offset for length and string address
 ALPHABET    equ 256         ; ASCII
 
 ;; MACRO
@@ -90,14 +91,28 @@ buildSuffixArray:
 
     ; allocating memory for SuffixArray
 
-    add rsi, 1
+    add rsi, 3
     call_calloc rsi, INT_SZ         ; calloc saves rdi & rsi
-    sub rsi, 1
+    sub rsi, 3
+
+    mov r15, rax
 
     mpush rax                       ; save address of SuffixArray
 
-    mov [rax], esi                  ; set length of new SuffixArray
+    mov [rax + LEN], esi         ; set length of new SuffixArray
+;===================================
+    call_calloc rsi, CHAR_SZ        ; copying input string
+    mov r12, rdi
+    mov r13, rsi
+    mpush rdi, rsi, rdx
+        mov rdi, rax
+        mov rsi, r12
+        mov rdx, r13
+        call memcpy
+    mpop rdi, rsi, rdx
 
+    mov [r15], rax                  ; set address of the copy of input string
+;===================================
     mov rdx, rsi
     if rdx, ge, ALPHABET, .after_size_calc
 ;   {
@@ -120,6 +135,8 @@ buildSuffixArray:
     mov r15, rax                    ; r13 = address to array `p_n`
 
     mpop rax                        ; rax = address of SuffixArray
+
+    ;jmp .finish1
 
 ;    for(int i = 0; i < n; i++) {
 ;        c[i] = s[i];
@@ -362,7 +379,7 @@ buildSuffixArray:
         shl rdx, 2
 
         mov rdi, rax
-        add rdi, INT_SZ
+        add rdi, DATA
 
         mov rsi, r14
 
@@ -371,6 +388,7 @@ buildSuffixArray:
 
     ; deallocation memory
 
+.finish1:
     call_free r10
     call_free r11
     call_free r12
@@ -384,16 +402,47 @@ buildSuffixArray:
     ret
 
 deleteSuffixArray:
-    call free
+    mov r12, rdi
+    mov rdi, [rdi]
+    call free       ; deallocating memory for input string
+
+    mov rdi, r12
+    call free       ; deallocating memory for object
     ret
 
 length:
-    mov eax, [rdi]
+    mov eax, [rdi + LEN]
     ret
 
 getPosition:
     mov eax, [rdi + DATA + rsi * INT_SZ]
     ret
 
+%macro searchEntry 4    ; SuffixArray, str address, str len, comparator (<, <=)
+    mov r8, 0           ; l = 0
+    mov r9d, [%1 + LEN] ; r = length
+    mov rax, [rax]      ; SuffixArray.str
+%%loop:
+    mov r10, r8
+    add r10, r9
+    shr r10, 1          ; r10 = (l + r) / 2
+
+    mpush r12, r13
+    mov r11, 0          ; i = 0;
+    %%inner_loop:
+        mov r12,
+        %%comparator_true:
+            jmp %%after_cmp
+
+        %%comparator_false:
+
+    %%after_cmp:
+
+    mpop r12, r13
+
+    if r8, l, r9, %%loop
+%endmacro
+
 findAllEntries:
+
     ret

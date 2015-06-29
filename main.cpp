@@ -110,35 +110,44 @@ int main() {
     //freopen("array.in", "r", stdin);
     //freopen("array.out", "w", stdout);
 
-    int n = 1000000;
-    s.resize(n);
-    srand(time(NULL));
-    for(int i = 0; i < n; i++) {
-        s[i] = char(rand() % 26 + 'a');
-    }
-    s += "#";
-
-    vector <int> sa(n + 1, 0);
-
-    cout << "C++ implementation:\n";
-    int cpp_cl = clock();
-    suffix_array(s, sa);
-    cpp_cl = clock() - cpp_cl;
-    printf("time = %.3lf\n", 1.0*cpp_cl / 1000000);
-
-    cout << "YASM implementation:\n";
-    int asm_cl = clock();
-    SuffixArray a = buildSuffixArray(s.c_str(), s.size());
-    asm_cl = clock() - asm_cl;
-    printf("time = %.3lf\n", 1.0*asm_cl / 1000000);
-
-    for(int i = 1; i < s.size(); i++) {
-        if (sa[i] != getPosition(a, i)) {
-            cout << "pizda v pozicii i = " << i << endl;
-            break;
+    int cnt = 10;
+    //while(cnt) {
+        int n = 1000000;
+        s.resize(n);
+        srand(time(NULL));
+        for(int i = 0; i < n; i++) {
+            s[i] = char(rand() % 26 + 'a');
         }
-    }
+        //s += "#";
 
-    deleteSuffixArray(a);
+        cout << s.substr(0, 50) << endl;
+
+        vector <int> sa(n, 0);
+
+        cout << "C++ implementation:\n";
+        int cpp_cl = clock();
+        suffix_array(s, sa);
+        cpp_cl = clock() - cpp_cl;
+        printf("time = %.3lf\n", 1.0*cpp_cl / 1000000);
+
+        cout << "YASM implementation:\n";
+        int asm_cl = clock();
+        SuffixArray a = buildSuffixArray(s.c_str(), s.size());
+        asm_cl = clock() - asm_cl;
+        printf("time = %.3lf\n", 1.0*asm_cl / 1000000);
+
+        cout << "len = " << length(a) << endl;
+
+        for(int i = 1; i < s.size(); i++) {
+            if (sa[i] != getPosition(a, i)) {
+                cout << "pizda v pozicii i = " << i << endl;
+                break;
+            }
+        }
+        cnt--;
+
+        //deleteSuffixArray(a);
+    //}
+
     return 0;
 }
