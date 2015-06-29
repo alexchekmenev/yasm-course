@@ -5,8 +5,7 @@
 
 section .data
 
-pstr    db '%d',10,0
-ppstr    db '[%d] = %d',10,0
+ppstr db 'l = %d, r = %d',10,0
 
 section .text
 
@@ -21,7 +20,9 @@ global deleteSuffixArray
 global length
 global getPosition
 global findAllEntries
-
+global getRangeFirst
+global getRangeLast
+global deleteRange
 
 ;; CONSTANTS
 
@@ -418,31 +419,163 @@ getPosition:
     mov eax, [rdi + DATA + rsi * INT_SZ]
     ret
 
-%macro searchEntry 4    ; SuffixArray, str address, str len, comparator (<, <=)
+%macro searchFirstEntry 3    ; SuffixArray, str address, str len
     mov r8, 0           ; l = 0
     mov r9d, [%1 + LEN] ; r = length
-    mov rax, [rax]      ; SuffixArray.str
+    mov rax, [%1]      ; SuffixArray.str
 %%loop:
     mov r10, r8
     add r10, r9
-    shr r10, 1          ; r10 = (l + r) / 2
+    shr r10, 1          ; m = (l + r) / 2
 
-    mpush r12, r13
-    mov r11, 0          ; i = 0;
+    mpush r12
+
+    mov r11, 0                              ; i = 0;
+    mov r12d, [%1 + DATA + r10 * INT_SZ]     ; r12 = arr[m]
     %%inner_loop:
-        mov r12,
-        %%comparator_true:
-            jmp %%after_cmp
+        mov cl, [rax + r12 * CHAR_SZ]       ; cl = SuffixArray.str[arr[m] + i]
+        mov dl, [%2 + r11 * CHAR_SZ]        ; dl = str[i]
+
+        cmp cl, dl
+        jl %%comparator_true
+        jne %%comparator_false
+
+        add r11, 1                          ; i++
+        add r12, CHAR_SZ                    ; r12 = arr[m] + 1
+        if r11, l, %3, %%inner_loop          ; if i < str.len goto %%inner_loop
 
         %%comparator_false:
-
+            mov r9, r10                     ; r = m
+            jmp %%after_cmp
+        %%comparator_true:
+            add r10, 1                      ; m = m + 1
+            mov r8, r10                     ; l = m + 1
     %%after_cmp:
 
-    mpop r12, r13
+    mpop r12
 
     if r8, l, r9, %%loop
+
+    mov rax, r8                             ; rax = l
+
 %endmacro
 
-findAllEntries:
+%macro searchLastEntry 3    ; SuffixArray, str address, str len
+mov r8, 0           ; l = 0
+    mov r9d, [%1 + LEN] ; r = length
+    sub r9, 1           ; r = length - 1
+    mov rax, [%1]      ; SuffixArray.str
+%%loop:
+    mov r10, r8
+    add r10, r9
+    shr r10, 1          ; m = (l + r) / 2
 
+    mpush r12
+
+    mov r11, 0                              ; i = 0;
+    mov r12d, [%1 + DATA + r10 * INT_SZ]     ; r12 = arr[m]
+    %%inner_loop:
+        mov cl, [rax + r12 * CHAR_SZ]       ; cl = SuffixArray.str[arr[m] + i]
+        mov dl, [%2 + r11 * CHAR_SZ]        ; dl = str[i]
+
+        cmp cl, dl
+        jl %%comparator_true
+        jg %%comparator_false
+
+        add r11, 1                          ; i++
+        add r12, CHAR_SZ                    ; r12 = arr[m] + 1
+        if r11, l, %3, %%inner_loop          ; if i < str.len goto %%inner_loop
+
+        jmp %%comparator_true
+        ; equal
+
+        %%comparator_false:
+            mov r9, r10                     ; r = m
+            jmp %%after_cmp
+        %%comparator_true:
+            add r10, 1                      ; m = m + 1
+            mov r8, r10                     ; l = m + 1
+    %%after_cmp:
+
+    mpop r12
+
+    if r8, l, r9, %%loop
+
+    mov rax, r8                             ; rax = l
+%endmacro
+
+
+findAllEntries:
+    mpush r12, r13, r15
+        mov r15, rdx
+
+        searchFirstEntry rdi, rsi, rdx
+        mov r12, rax
+
+
+;=======================================
+    mov r8, 0           ; l = 0
+    mov r9d, [rdi + LEN] ; r = length
+    mov rax, [rdi]      ; SuffixArray.str
+.loop:
+    mov r10, r8
+    add r10, r9
+    shr r10, 1          ; m = (l + r) / 2
+
+    mpush r12
+
+    mov r11, 0                              ; i = 0;
+    mov r12d, [rdi + DATA + r10 * INT_SZ]   ; r12 = arr[m]
+    .inner_loop:
+        mov cl, [rax + r12 * CHAR_SZ]       ; cl = SuffixArray.str[arr[m] + i]
+        mov dl, [rsi + r11 * CHAR_SZ]       ; dl = str[i]
+
+        cmp cl, dl
+        jne .after_inner_loop
+
+        add r11, 1                          ; i++
+        add r12, CHAR_SZ                    ; r12 = arr[m] + 1
+        if r11, l, r15, .inner_loop         ; if i < str.len goto .inner_loop
+
+        .after_inner_loop:                  ; equal
+            if r11, e, r15, .comparator_true
+            if cl, l, dl, .comparator_true
+            if cl, g, dl, .comparator_false
+
+        .comparator_false:
+            mov r9, r10                     ; r = m
+            jmp .after_cmp
+        .comparator_true:
+            add r10, 1                      ; m = m + 1
+            mov r8, r10                     ; l = m + 1
+    .after_cmp:
+
+    mpop r12
+
+    if r8, l, r9, .loop
+
+    mov rax, r8                             ; rax = l
+;=======================================
+        mov r13, rax
+
+        mov rdi, 2
+        mov rsi, INT_SZ
+        call calloc
+
+        mov [rax], r12d
+        mov [rax + INT_SZ], r13d
+
+    mpop r12, r13, r15
+    ret
+
+getRangeFirst:
+    mov eax, [rdi]
+    ret
+
+getRangeLast:
+    mov eax, [rdi + INT_SZ]
+    ret
+
+deleteRange:
+    call free
     ret

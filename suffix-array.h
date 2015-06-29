@@ -33,7 +33,14 @@ int getPosition(SuffixArray a, int position);
 /**
  * \return Range specifying all entries of given needle in suffix array
  */
-Range findAllEntries(SuffixArray a, char* needle, int length);
+Range findAllEntries(SuffixArray a, const char* needle, int length);
+int getRangeFirst(Range r);
+int getRangeLast(Range r);
+
+/**
+ * Delete Range created when findAllEntries called
+ */
+void deleteRange(Range r);
 
 
 #ifdef __cplusplus
